@@ -4,76 +4,62 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>图片编辑器</title>
+    <link rel="stylesheet" href="styles.css">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <style>
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        .image-container {
-            margin: 20px 0;
-            text-align: center;
-            min-height: 300px;
-            position: relative;
-            overflow: hidden;
-        }
-        #preview {
-            max-width: 100%;
-            max-height: 500px;
-            display: none;
-            position: absolute;
-            left: 50%;
-            top: 50%;
-            transform-origin: center center;
-            transform: translate(-50%, -50%);
-            transition: transform 0.3s ease;
-        }
-        .controls {
-            margin: 20px 0;
-            position: relative;
-            z-index: 1;
-        }
-        .btn {
-            padding: 10px 20px;
-            margin: 5px;
-            cursor: pointer;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 4px;
-        }
-        .btn:hover {
-            background-color: #45a049;
-        }
-        #saveBtn {
-            background-color: #2196F3;
-        }
-        #saveBtn:hover {
-            background-color: #1976D2;
-        }
-        canvas {
-            display: none;
-        }
-    </style>
 </head>
 <body>
     <div class="container">
         <h1>图片编辑器</h1>
-        <div class="controls">
-            <input type="file" id="imageInput" accept="image/*" style="display: none;">
-            <button class="btn" id="selectImage">选择图片</button>
-            <button class="btn" id="rotateLeft">向左旋转</button>
-            <button class="btn" id="rotateRight">向右旋转</button>
-            <button class="btn" id="flipHorizontal">水平翻转</button>
-            <button class="btn" id="flipVertical">垂直翻转</button>
-            <button class="btn" id="saveBtn">保存图片</button>
-        </div>
-        <div class="image-container">
-            <img id="preview" src="" alt="预览图片">
-            <canvas id="canvas"></canvas>
+        <div class="image-editor">
+            <div class="preview-container">
+                <img id="preview" src="" alt="预览">
+                <div class="crop-area">
+                    <div class="resize-handle nw"></div>
+                    <div class="resize-handle ne"></div>
+                    <div class="resize-handle sw"></div>
+                    <div class="resize-handle se"></div>
+                </div>
+            </div>
+            <div class="toolbar">
+                <div class="button-group">
+                    <button id="selectImage" class="btn">选择图片</button>
+                    <input type="file" id="imageInput" accept="image/*" title="选择要编辑的图片">
+                </div>
+                <div class="button-group">
+                    <button id="rotateLeft" class="btn">向左旋转</button>
+                    <button id="rotateRight" class="btn">向右旋转</button>
+                    <button id="flipHorizontal" class="btn">水平翻转</button>
+                    <button id="flipVertical" class="btn">垂直翻转</button>
+                </div>
+                <div class="button-group">
+                    <button id="cropBtn" class="btn">裁剪</button>
+                    <button id="saveBtn" class="btn">保存</button>
+                </div>
+                <div class="adjustment-group">
+                    <label for="brightness">亮度</label>
+                    <input type="range" id="brightness" min="-100" max="100" value="0">
+                    <span>0</span>
+                </div>
+                <div class="adjustment-group">
+                    <label for="contrast">对比度</label>
+                    <input type="range" id="contrast" min="-100" max="100" value="0">
+                    <span>0</span>
+                </div>
+                <div class="adjustment-group">
+                    <label for="saturation">饱和度</label>
+                    <input type="range" id="saturation" min="-100" max="100" value="0">
+                    <span>0</span>
+                </div>
+                <div class="button-group">
+                    <button class="filter-btn" data-filter="grayscale">黑白</button>
+                    <button class="filter-btn" data-filter="sepia">复古</button>
+                    <button class="filter-btn" data-filter="blur">模糊</button>
+                    <button class="filter-btn" data-filter="reset">重置</button>
+                </div>
+            </div>
         </div>
     </div>
+    <canvas id="canvas" style="display: none;"></canvas>
     <script src="script.js"></script>
 </body>
 </html> 
