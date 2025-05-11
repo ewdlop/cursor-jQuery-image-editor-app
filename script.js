@@ -10,6 +10,12 @@ $(document).ready(function() {
     let originalImage = null;
     let isTransforming = false;
     let lastUpdateTime = 0;
+    let zoom = 100;
+    let sharpness = 0;
+    let blur = 0;
+    let originalAspectRatio = 1;
+    let originalWidth = 0;
+    let originalHeight = 0;
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d', { alpha: false });
     const previewCanvas = document.createElement('canvas');
@@ -27,87 +33,86 @@ $(document).ready(function() {
         }
     }
 
-    // 选择图片按钮点击事件
-    $('#selectImage').click(function() {
-        $('#imageInput').click();
-    });
-
-    // 文件选择事件
-    $('#imageInput').change(function(e) {
-        const file = e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const img = new Image();
-                img.onload = function() {
-                    originalImage = img;
-                    // 设置 canvas 尺寸
-                    const maxSize = 1024; // 限制最大尺寸
-                    let width = img.width;
-                    let height = img.height;
-                    
-                    if (width > maxSize || height > maxSize) {
-                        if (width > height) {
-                            height = Math.round((height * maxSize) / width);
-                            width = maxSize;
-                        } else {
-                            width = Math.round((width * maxSize) / height);
-                            height = maxSize;
-                        }
-                    }
-                    
-                    canvas.width = width;
-                    canvas.height = height;
-                    previewCanvas.width = width;
-                    previewCanvas.height = height;
-                    
-                    // 绘制原始图片
-                    ctx.drawImage(img, 0, 0, width, height);
-                    // 显示预览
-                    $('#preview').attr('src', canvas.toDataURL('image/jpeg', 0.8)).show();
-                    // 重置变换
-                    rotation = 0;
-                    scaleX = 1;
-                    scaleY = 1;
-                    resetAdjustments();
-                    updateImageTransform();
-                };
-                img.src = e.target.result;
-            };
-            reader.readAsDataURL(file);
+    // 计算适合画布的图片尺寸
+    function calculateFitSize(imgWidth, imgHeight, maxWidth, maxHeight) {
+        let width = imgWidth;
+        let height = imgHeight;
+        
+        // 如果图片尺寸超过最大尺寸，进行缩放
+        if (width > maxWidth || height > maxHeight) {
+            const ratio = Math.min(maxWidth / width, maxHeight / height);
+            width = Math.round(width * ratio);
+            height = Math.round(height * ratio);
         }
-    });
+        
+        return { width, height };
+    }
 
-    // 向左旋转
-    $('#rotateLeft').click(function() {
-        rotation -= 90;
-        updateImageTransform();
-    });
+    // 更新尺寸输入框
+    function updateSizeInputs(width, height) {
+        $('#width').val(width);
+        $('#height').val(height);
+    }
 
-    // 向右旋转
-    $('#rotateRight').click(function() {
-        rotation += 90;
-        updateImageTransform();
-    });
+    // 更新主画布
+    function updateMainCanvas() {
+        if (!originalImage) return;
+        
+        // 清空主画布
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // 保存当前状态
+        ctx.save();
+        
+        // 移动到画布中心
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        
+        // 应用缩放
+        const scale = zoom / 100;
+        ctx.scale(scale * scaleX, scale * scaleY);
+        
+        // 应用旋转
+        ctx.rotate(rotation * Math.PI / 180);
+        
+        // 应用滤镜
+        const brightness = $('#brightness').val();
+        const contrast = $('#contrast').val();
+        const saturation = $('#saturation').val();
+        
+        let filterString = '';
+        if (brightness !== '0') filterString += `brightness(${100 + parseInt(brightness)}%) `;
+        if (contrast !== '0') filterString += `contrast(${100 + parseInt(contrast)}%) `;
+        if (saturation !== '0') filterString += `saturate(${100 + parseInt(saturation)}%) `;
+        if (sharpness > 0) filterString += `contrast(${100 + sharpness}%) `;
+        if (blur > 0) filterString += `blur(${blur}px) `;
+        if (currentFilter) filterString += currentFilter;
+        
+        if (filterString) {
+            ctx.filter = filterString;
+        }
+        
+        // 计算图片在画布中的位置和尺寸
+        const fitSize = calculateFitSize(originalImage.width, originalImage.height, canvas.width, canvas.height);
+        
+        // 绘制图片
+        ctx.drawImage(
+            originalImage,
+            -fitSize.width / 2,
+            -fitSize.height / 2,
+            fitSize.width,
+            fitSize.height
+        );
+        
+        // 恢复状态
+        ctx.restore();
+    }
 
-    // 水平翻转
-    $('#flipHorizontal').click(function() {
-        scaleX *= -1;
-        updateImageTransform();
-    });
-
-    // 垂直翻转
-    $('#flipVertical').click(function() {
-        scaleY *= -1;
-        updateImageTransform();
-    });
-
-    // 更新图片变换
-    const updateImageTransform = throttle(function() {
+    // 更新预览画布
+    function updatePreviewCanvas() {
         if (!originalImage || isTransforming) return;
         
         const now = performance.now();
-        if (now - lastUpdateTime < 16) return; // 限制更新频率
+        if (now - lastUpdateTime < 16) return;
         lastUpdateTime = now;
 
         isTransforming = true;
@@ -121,26 +126,41 @@ $(document).ready(function() {
             // 移动到画布中心
             previewCtx.translate(previewCanvas.width / 2, previewCanvas.height / 2);
             
+            // 应用缩放
+            const scale = zoom / 100;
+            previewCtx.scale(scale * scaleX, scale * scaleY);
+            
             // 应用旋转
             previewCtx.rotate(rotation * Math.PI / 180);
-            
-            // 应用缩放
-            previewCtx.scale(scaleX, scaleY);
 
             // 应用滤镜
             const brightness = $('#brightness').val();
             const contrast = $('#contrast').val();
             const saturation = $('#saturation').val();
             
-            if (brightness !== '0' || contrast !== '0' || saturation !== '0' || currentFilter) {
-                previewCtx.filter = `${brightness !== '0' ? `brightness(${100 + parseInt(brightness)}%) ` : ''}
-                            ${contrast !== '0' ? `contrast(${100 + parseInt(contrast)}%) ` : ''}
-                            ${saturation !== '0' ? `saturate(${100 + parseInt(saturation)}%) ` : ''}
-                            ${currentFilter}`;
+            let filterString = '';
+            if (brightness !== '0') filterString += `brightness(${100 + parseInt(brightness)}%) `;
+            if (contrast !== '0') filterString += `contrast(${100 + parseInt(contrast)}%) `;
+            if (saturation !== '0') filterString += `saturate(${100 + parseInt(saturation)}%) `;
+            if (sharpness > 0) filterString += `contrast(${100 + sharpness}%) `;
+            if (blur > 0) filterString += `blur(${blur}px) `;
+            if (currentFilter) filterString += currentFilter;
+            
+            if (filterString) {
+                previewCtx.filter = filterString;
             }
 
+            // 计算图片在预览画布中的位置和尺寸
+            const fitSize = calculateFitSize(originalImage.width, originalImage.height, previewCanvas.width, previewCanvas.height);
+
             // 绘制图片
-            previewCtx.drawImage(originalImage, -originalImage.width / 2, -originalImage.height / 2);
+            previewCtx.drawImage(
+                originalImage,
+                -fitSize.width / 2,
+                -fitSize.height / 2,
+                fitSize.width,
+                fitSize.height
+            );
 
             // 恢复状态
             previewCtx.restore();
@@ -150,20 +170,129 @@ $(document).ready(function() {
 
             isTransforming = false;
         });
-    }, 16);
+    }
+
+    // 选择图片按钮点击事件
+    $('#selectImage').click(function() {
+        $('#imageInput').click();
+    });
+
+    // 文件选择事件
+    $('#imageInput').change(function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    // 清理旧的图片数据
+                    if (originalImage) {
+                        originalImage = null;
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+                    }
+
+                    originalImage = img;
+                    originalWidth = img.width;
+                    originalHeight = img.height;
+                    
+                    // 设置画布尺寸
+                    const maxSize = 1024;
+                    const fitSize = calculateFitSize(img.width, img.height, maxSize, maxSize);
+                    
+                    canvas.width = fitSize.width;
+                    canvas.height = fitSize.height;
+                    previewCanvas.width = fitSize.width;
+                    previewCanvas.height = fitSize.height;
+                    
+                    // 更新原始宽高比
+                    originalAspectRatio = img.width / img.height;
+                    
+                    // 更新尺寸输入框
+                    updateSizeInputs(img.width, img.height);
+                    
+                    // 绘制图片
+                    ctx.drawImage(img, 0, 0, fitSize.width, fitSize.height);
+                    
+                    // 显示预览
+                    $('#preview').attr('src', canvas.toDataURL('image/jpeg', 0.8)).show();
+                    
+                    // 重置变换
+                    rotation = 0;
+                    scaleX = 1;
+                    scaleY = 1;
+                    zoom = 100;
+                    sharpness = 0;
+                    blur = 0;
+                    resetAdjustments();
+                    updatePreviewCanvas();
+                    updateMainCanvas();
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    // 向左旋转
+    $('#rotateLeft').click(function() {
+        rotation -= 90;
+        updatePreviewCanvas();
+        updateMainCanvas();
+    });
+
+    // 向右旋转
+    $('#rotateRight').click(function() {
+        rotation += 90;
+        updatePreviewCanvas();
+        updateMainCanvas();
+    });
+
+    // 水平翻转
+    $('#flipHorizontal').click(function() {
+        scaleX *= -1;
+        updatePreviewCanvas();
+        updateMainCanvas();
+    });
+
+    // 垂直翻转
+    $('#flipVertical').click(function() {
+        scaleY *= -1;
+        updatePreviewCanvas();
+        updateMainCanvas();
+    });
 
     // 调整面板事件
     $('.adjustment-group input').on('input', function() {
-        $(this).next('span').text($(this).val());
-        updateImageTransform();
+        const value = $(this).val();
+        $(this).next('span').text(value + ($(this).attr('id') === 'zoom' ? '%' : ''));
+        
+        // 更新相应的变量
+        switch($(this).attr('id')) {
+            case 'zoom':
+                zoom = parseInt(value);
+                break;
+            case 'sharpness':
+                sharpness = parseInt(value);
+                break;
+            case 'blur':
+                blur = parseFloat(value);
+                break;
+        }
+        
+        updatePreviewCanvas();
+        updateMainCanvas();
     });
 
     // 重置调整
     function resetAdjustments() {
         $('.adjustment-group input').val(0);
+        $('.adjustment-group input#zoom').val(100);
         $('.adjustment-group span').text('0');
+        $('.adjustment-group input#zoom').next('span').text('100%');
         currentFilter = '';
-        updateImageTransform();
+        updatePreviewCanvas();
+        updateMainCanvas();
     }
 
     // 滤镜按钮事件
@@ -184,7 +313,78 @@ $(document).ready(function() {
                     break;
             }
         }
-        updateImageTransform();
+        updatePreviewCanvas();
+        updateMainCanvas();
+    });
+
+    // 尺寸调整
+    // 监听宽度输入
+    $('#width').on('input', function() {
+        if ($('#maintainAspectRatio').is(':checked')) {
+            const newWidth = parseInt($(this).val());
+            if (!isNaN(newWidth) && newWidth > 0) {
+                const newHeight = Math.round(newWidth / originalAspectRatio);
+                $('#height').val(newHeight);
+            }
+        }
+    });
+
+    // 监听高度输入
+    $('#height').on('input', function() {
+        if ($('#maintainAspectRatio').is(':checked')) {
+            const newHeight = parseInt($(this).val());
+            if (!isNaN(newHeight) && newHeight > 0) {
+                const newWidth = Math.round(newHeight * originalAspectRatio);
+                $('#width').val(newWidth);
+            }
+        }
+    });
+
+    // 应用尺寸调整
+    $('#resizeBtn').click(function() {
+        if (!originalImage) return;
+
+        const newWidth = parseInt($('#width').val());
+        const newHeight = parseInt($('#height').val());
+
+        if (isNaN(newWidth) || isNaN(newHeight) || newWidth <= 0 || newHeight <= 0) {
+            alert('请输入有效的尺寸！');
+            return;
+        }
+
+        // 创建临时 canvas 进行尺寸调整
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCanvas.width = newWidth;
+        tempCanvas.height = newHeight;
+
+        // 绘制调整后的图片
+        tempCtx.drawImage(originalImage, 0, 0, originalWidth, originalHeight, 0, 0, newWidth, newHeight);
+
+        // 更新原始图片和 canvas
+        const newImage = new Image();
+        newImage.onload = function() {
+            originalImage = newImage;
+            originalWidth = newWidth;
+            originalHeight = newHeight;
+            canvas.width = newWidth;
+            canvas.height = newHeight;
+            previewCanvas.width = newWidth;
+            previewCanvas.height = newHeight;
+            ctx.drawImage(newImage, 0, 0);
+            
+            // 更新原始宽高比
+            originalAspectRatio = newWidth / newHeight;
+            
+            // 重置所有变换
+            rotation = 0;
+            scaleX = 1;
+            scaleY = 1;
+            resetAdjustments();
+            updatePreviewCanvas();
+            updateMainCanvas();
+        };
+        newImage.src = tempCanvas.toDataURL();
     });
 
     // 裁剪功能
@@ -377,7 +577,7 @@ $(document).ready(function() {
             scaleX = 1;
             scaleY = 1;
             resetAdjustments();
-            updateImageTransform();
+            updatePreviewCanvas();
         };
         newImage.src = tempCanvas.toDataURL();
     }
