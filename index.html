@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图片编辑器</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .image-container {
+            margin: 20px 0;
+            text-align: center;
+            min-height: 300px;
+            position: relative;
+            overflow: hidden;
+        }
+        #preview {
+            max-width: 100%;
+            max-height: 500px;
+            display: none;
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform-origin: center center;
+            transform: translate(-50%, -50%);
+            transition: transform 0.3s ease;
+        }
+        .controls {
+            margin: 20px 0;
+            position: relative;
+            z-index: 1;
+        }
+        .btn {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+        .btn:hover {
+            background-color: #45a049;
+        }
+        #saveBtn {
+            background-color: #2196F3;
+        }
+        #saveBtn:hover {
+            background-color: #1976D2;
+        }
+        canvas {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>图片编辑器</h1>
+        <div class="controls">
+            <input type="file" id="imageInput" accept="image/*" style="display: none;">
+            <button class="btn" id="selectImage">选择图片</button>
+            <button class="btn" id="rotateLeft">向左旋转</button>
+            <button class="btn" id="rotateRight">向右旋转</button>
+            <button class="btn" id="flipHorizontal">水平翻转</button>
+            <button class="btn" id="flipVertical">垂直翻转</button>
+            <button class="btn" id="saveBtn">保存图片</button>
+        </div>
+        <div class="image-container">
+            <img id="preview" src="" alt="预览图片">
+            <canvas id="canvas"></canvas>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html> 
